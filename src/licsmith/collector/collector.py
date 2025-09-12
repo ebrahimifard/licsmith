@@ -202,15 +202,19 @@ def extract_package(package_path: str, temp_dir: str) -> Optional[str]:
 def find_license_in_extracted_package(extract_dir: str, package_name: str) -> Optional[str]:
     """Find and read license file(s) in extracted package root directory only."""
     license_files = [
-        'LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENSE.rst',
+        'LICENSE', 'LICENSE.txt', 'LICENSE.md', 'LICENSE.rst', 'LICENCE.rst',
         'COPYING', 'COPYRIGHT', 'NOTICE', 'LICENCE', 'LICENCE.txt',
-        'License', 'license', 'license.txt'
+        'License', 'license', 'license.txt', 
+        'APACHE-LICENSE-2.0.txt', 'GPL-LICENSE-2.txt',
     ]
    
+
     license_directories = [
         'LICENSE', 'LICENSES', 'license', 'licenses',
         'License', 'Licenses', 'LICENCE', 'LICENCES'
     ]
+
+
    
     print(f"    Searching for license files in root directory only...")
    
@@ -381,6 +385,7 @@ if __name__ == "__main__":
     print(r"In Linux/Mac => /home/yourname/projects/my_project/")     
 
     project_root_path = input("\nPath: ")
+    print(project_root_path)
 
     license_file_name = input("\nPlease enter the name of the aggregated license file (e.g., LICENSES.txt): ")
 
