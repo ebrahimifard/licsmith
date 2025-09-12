@@ -377,8 +377,8 @@ if __name__ == "__main__":
     """)
 
     print("These are examples of project root path in different operating systems:")
-    print(r"In Windows => C:\Users\YourName\Documents\my_project")  
-    print(r"In Linux/Mac => /home/yourname/projects/my_project")     
+    print(r"In Windows => C:\Users\YourName\Documents\my_project\ ")  
+    print(r"In Linux/Mac => /home/yourname/projects/my_project/")     
 
     project_root_path = input("\nPath: ")
 
