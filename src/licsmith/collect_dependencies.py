@@ -222,7 +222,6 @@ def parse_setup_py(file_path: Path) -> List[Tuple[str, Optional[str]]]:
     return packages
 
 
-
 def parse_requirements_file(file_path: Path, seen_files: Optional[Set[Path]] = None) -> List[Tuple[str, Optional[str]]]:
     """Parse a requirements.txt file with -r includes support."""
     if not file_path.exists():

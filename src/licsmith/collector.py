@@ -361,8 +361,6 @@ def print_results_summary(results: Dict[str, str]):
     print("=" * 50)
 
 
-
-
 if __name__ == "__main__":
     print("Welcome to License Collector!")
     print("=" * 50)
