@@ -155,23 +155,26 @@ class LicenseAnalyzerLLM:
         text = self._prepare_inputs(text)
         prompt = self._build_prompt(text)
         inputs = self.tokenizer(prompt, return_tensors="pt").to(self.model.device)
-
-        print("Hi1")
+        
         with torch.no_grad():
+            # Fixed generation parameters to avoid compatibility issues
             output_ids = self.model.generate(
-                **inputs,
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs.get("attention_mask"),
                 max_new_tokens=self.MAX_NEW_TOKENS,
-                do_sample=False,
-                # temperature=self.TEMPERATURE,
-                # top_p=self.TOP_P,
+                do_sample=False,  # Greedy decoding
                 eos_token_id=self.tokenizer.eos_token_id,
                 pad_token_id=self.tokenizer.pad_token_id,
+                use_cache=True,  # Changed back to True - let the model handle caching
+                # Removed temperature since do_sample=False
+                repetition_penalty=1.05,  # Slight penalty to avoid repetition
             )
 
         full_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
         prompt_text = self.tokenizer.decode(inputs["input_ids"][0], skip_special_tokens=True)
         generated = full_text[len(prompt_text):].strip()
 
+        # Clean up markdown fences if present
         if generated.startswith("```"):
             generated = generated.strip().lstrip("`")
             if generated.lower().startswith("json"):
@@ -179,52 +182,157 @@ class LicenseAnalyzerLLM:
             if "```" in generated:
                 generated = generated.split("```", 1)[0].strip()
 
+        # Extract JSON from the response
         start = generated.find("{")
         end = generated.rfind("}")
         if start == -1 or end == -1 or end <= start:
-            raise RuntimeError(f"Model did not return JSON. Raw:\n{generated[:800]}")
+            # Fallback: try to find JSON in a different way
+            lines = generated.split('\n')
+            json_lines = []
+            in_json = False
+            for line in lines:
+                if '{' in line and not in_json:
+                    in_json = True
+                if in_json:
+                    json_lines.append(line)
+                if '}' in line and in_json:
+                    break
+            
+            if json_lines:
+                generated = '\n'.join(json_lines)
+                start = generated.find("{")
+                end = generated.rfind("}")
+            
+            if start == -1 or end == -1 or end <= start:
+                raise RuntimeError(f"Model did not return JSON. Raw output:\n{generated[:800]}")
 
         raw_json = generated[start:end+1]
+        
         try:
             data = json.loads(raw_json)
-        except json.JSONDecodeError:
-            repaired = raw_json.replace(",\n}", "\n}").replace(",\n]", "\n]")
-            data = json.loads(repaired)
+        except json.JSONDecodeError as e:
+            print(f"⚠️  JSON decode error: {e}")
+            print(f"Raw JSON: {raw_json[:500]}...")
+            
+            # Try to repair common JSON issues
+            repaired = raw_json
+            repaired = repaired.replace(",\n}", "\n}")
+            repaired = repaired.replace(",\n]", "\n]")
+            repaired = repaired.replace('",\n  }', '"\n  }')
+            
+            try:
+                data = json.loads(repaired)
+                print("✅ JSON repaired successfully")
+            except json.JSONDecodeError:
+                # Last resort: create a basic response
+                print("❌ Could not parse JSON, creating fallback response")
+                data = {
+                    "answers": {q: "Unable to parse model response" for q in self.QUESTIONS},
+                    "summary": "Error occurred during analysis",
+                    "confidence": 0.0
+                }
 
+        # Ensure all required fields are present
         if "answers" not in data:
             data["answers"] = {}
+        
         for q in self.QUESTIONS:
-            data["answers"].setdefault(q, "Unclear from the provided license text.")
+            if q not in data["answers"]:
+                data["answers"][q] = "Unclear from the provided license text."
 
         return QAResult(**data)
 
     def print_results(self, result: QAResult):
         print("\n" + "="*80)
-        print("🔍 LICENSE ANALYSIS RESULTS (LLM-only)")
+        print("🔍 LICENSE ANALYSIS RESULTS")
         print("="*80)
         for i, q in enumerate(self.QUESTIONS, 1):
             ans = result.answers.get(q, "")
-            print(f"\n{i}. {q}\n   📝 {ans}\n" + "-"*60)
+            print(f"\n{i}. {q}")
+            print(f"   📝 {ans}")
+            print("-"*60)
+        
         if result.summary:
-            print("\n📌 Summary:\n", result.summary)
+            print(f"\n📌 Summary:")
+            print(f"   {result.summary}")
+        
         if result.confidence is not None:
             try:
-                print(f"\nConfidence (self-reported): {float(result.confidence):.2f}")
-            except Exception:
-                print(f"\nConfidence (self-reported): {result.confidence}")
+                conf_val = float(result.confidence)
+                print(f"\n🎯 Confidence: {conf_val:.2f}")
+            except (ValueError, TypeError):
+                print(f"\n🎯 Confidence: {result.confidence}")
 
     def save_results(self, result: QAResult, license_file: Path):
         out_path = license_file.with_suffix(".llm-license-review.json")
         with open(out_path, "w", encoding="utf-8") as f:
-            json.dump(result.model_dump(), f, indent=2)
-        print(f"💾 JSON saved to: {out_path}")
+            json.dump(result.model_dump(), f, indent=2, ensure_ascii=False)
+        print(f"💾 Results saved to: {out_path}")
 
 
-# -------------- Run directly --------------
+# Alternative models to try if Phi-3 continues to have issues
+ALTERNATIVE_MODELS = [
+    "microsoft/DialoGPT-medium",           # Smaller, more compatible
+    "Qwen/Qwen2.5-3B-Instruct",          # Good alternative
+    "microsoft/phi-2",                     # Older Phi model
+    "HuggingFaceH4/zephyr-7b-beta",      # Well-tested model
+]
+
+
+def test_model_compatibility(model_name: str) -> bool:
+    """Test if a model works with the current setup."""
+    try:
+        print(f"🧪 Testing model: {model_name}")
+        tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name, 
+            torch_dtype=torch.float32,
+            trust_remote_code=True
+        )
+        
+        # Simple test
+        test_input = tokenizer("Hello", return_tensors="pt")
+        with torch.no_grad():
+            model.generate(
+                **test_input,
+                max_new_tokens=5,
+                do_sample=False,
+                use_cache=True
+            )
+        print(f"✅ Model {model_name} works!")
+        return True
+    except Exception as e:
+        print(f"❌ Model {model_name} failed: {e}")
+        return False
+
 
 if __name__ == "__main__":
-    analyzer = LicenseAnalyzerLLM()
-    license_path = input("Enter path to LICENSE file: ").strip()
-    result = analyzer.analyze(license_path)
-    analyzer.print_results(result)
-    analyzer.save_results(result, Path(license_path))
+    # Try the default model first
+    try:
+        analyzer = LicenseAnalyzerLLM()
+        license_path = input("Enter path to LICENSE file: ").strip()
+        result = analyzer.analyze(license_path)
+        analyzer.print_results(result)
+        analyzer.save_results(result, Path(license_path))
+    
+    except Exception as e:
+        print(f"❌ Error with default model: {e}")
+        print("\n🔄 Trying alternative models...")
+        
+        # Try alternative models
+        for alt_model in ALTERNATIVE_MODELS:
+            if test_model_compatibility(alt_model):
+                print(f"\n✅ Using working model: {alt_model}")
+                try:
+                    analyzer = LicenseAnalyzerLLM(model_name=alt_model)
+                    license_path = input("Enter path to LICENSE file: ").strip()
+                    result = analyzer.analyze(license_path)
+                    analyzer.print_results(result)
+                    analyzer.save_results(result, Path(license_path))
+                    break
+                except Exception as inner_e:
+                    print(f"❌ Model {alt_model} also failed: {inner_e}")
+                    continue
+        else:
+            print("❌ All models failed. Please check your transformers version.")
+            print("Try: pip install transformers>=4.35.0")
