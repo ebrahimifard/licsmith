@@ -12,8 +12,8 @@ class QAResult(BaseModel):
 
 
 class LLMWrapper:
-    def __init__(self):
-        pass
+    def __init__(self, license_file_path):
+        self.license_file_path = license_file_path
 
     def launch_model(self):
         start_time = time.time()
