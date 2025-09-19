@@ -52,7 +52,7 @@ class LicenseAnalyser:
         self.model_load_time = None
 
     def analyseUsingLLM(
-        self,
+        self, license_file_path = None,
         model_name: str = "Qwen/Qwen2.5-7B-Instruct",
         context_reserve_tokens: int = 1024,
         prefer_4bit: bool = True,
@@ -73,12 +73,12 @@ class LicenseAnalyser:
             print(f"🔄 Loading model: {self.model_name}")
             print(f"📱 Device: {self.device}")
 
-        wrapper = LLMWrapper()
-        wrapper.launch_model()
+        wrapper = LLMWrapper(license_file_path)
+        output =  wrapper.launch_model()
 
         
-        if self.verbose:
-            print(f"✅ Model loaded successfully in {self.model_load_time:.2f}s!")
+        # if self.verbose:
+        #     print(f"✅ Model loaded successfully in {self.model_load_time:.2f}s!")
 
     def print_results(self, result: QAResult):
         """Print results in a nice format."""
@@ -111,7 +111,7 @@ class LicenseAnalyser:
         print(f"💾 Results saved to: {out_path}")
 
 
-def analyse_license(license_file_path: str, save_results: bool = True, analysis_method: str = "LLM") -> QAResult:
+def analyse_license(license_file_path: str, save_results: bool = True, analysis_method: str = "LLM", saving_path: str = "./") -> QAResult:
     """
     Simple function to analyse a license file using Qwen2.5-7B-Instruct.
     
@@ -123,20 +123,14 @@ def analyse_license(license_file_path: str, save_results: bool = True, analysis_
         QAResult object with structured analysis
     """
     if analysis_method == "LLM":
-    # Create analyser with Qwen2.5-7B-Instruct
+        # Create analyser with Qwen2.5-7B-Instruct
         LLM_analyser = LicenseAnalyser()
-
-        LLM_analyser.analyseUsingLLM()
-    
-        # Analyse the license
-        result = LLM_analyser.analyse(license_file_path)
-        
-        # Display results
+        result = LLM_analyser.analyseUsingLLM(license_file_path) 
         LLM_analyser.print_results(result)
         
         # Save if requested
         if save_results:
-            LLM_analyser.save_results(result, license_file_path)
+            LLM_analyser.save_results(result, saving_path)
     else:
         print("We are working on other license analysis methods. Stay tuned ...")
         quit()
@@ -153,7 +147,10 @@ if __name__ == "__main__":
     try:
         save_result_answer = input("Do you want to save the results? [Y/N] \n")
         save_result_flag = True if save_result_answer == "Y" else False
-        result = analyse_license(license_path, save_result_flag)
+        path_to_save = None
+        if save_result_flag:
+            path_to_save = input("Enter path you like to save the results: ").strip()
+        result = analyse_license(license_path, save_result_flag, path_to_save)
         print("\n✅ Analysis complete!")
         
     except Exception as e:
