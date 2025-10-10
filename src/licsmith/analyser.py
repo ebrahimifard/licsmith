@@ -126,14 +126,14 @@ class LicenseAnalyser:
         print(f"💾 Results saved to: {out_path}")
 
     def save_results(self, saving_path):
-        json.dump(open(saving_path, "w"), self.results)
+        with open(saving_path, "w", encoding="utf-8") as f:
+            json.dump(self.results, f, indent=2, ensure_ascii=False)
 
     def print_results(self):
         for q,a in self.results.items():
-            print(q)
-            print("\n\n")
-            print(a)
+            print(f"Question: {q}")
             print("\n")
+            print(f"Answer: {a}")
             print("="*50)
 
 def analyse_license(license_file_path: str, save_results: bool = True, analysis_method: str = "LLM", saving_path: str = "./"):
@@ -160,9 +160,6 @@ def analyse_license(license_file_path: str, save_results: bool = True, analysis_
     else:
         print("We are working on other license analysis methods. Stay tuned ...")
         quit()
-    
-    return result
-
 
 if __name__ == "__main__":
     license_path = input("Enter path to LICENSE file: ").strip()
@@ -176,7 +173,7 @@ if __name__ == "__main__":
         path_to_save = None
         if save_result_flag:
             path_to_save = input("Enter path you like to save the results: ").strip()
-        result = analyse_license(license_path, save_result_flag, "LLM", path_to_save)
+        analyse_license(license_path, save_result_flag, "LLM", path_to_save)
         print("\n✅ Analysis complete!")
         
     except Exception as e:
