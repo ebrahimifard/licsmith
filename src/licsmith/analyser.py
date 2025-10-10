@@ -4,7 +4,7 @@ from typing import List
 import torch
 
 
-from llm_wrapper import QAResult, LLMWrapper
+from llm_wrapper import LLMWrapper
 
 
 class LicenseAnalyser:
@@ -51,9 +51,11 @@ class LicenseAnalyser:
 
         self.model_load_time = None
 
+        self.results = None
+
     def analyseUsingLLM(
         self, license_file_path = None,
-        model_name: str = "Qwen/Qwen2.5-7B-Instruct",
+        model_name: str = "Qwen/Qwen3-4B-Instruct-2507",
         context_reserve_tokens: int = 1024,
         prefer_4bit: bool = True,
         verbose: bool = True):
@@ -73,36 +75,49 @@ class LicenseAnalyser:
             print(f"🔄 Loading model: {self.model_name}")
             print(f"📱 Device: {self.device}")
 
-        wrapper = LLMWrapper(license_file_path)
-        output =  wrapper.launch_model()
+        wrapper = LLMWrapper(license_file_path, self.create_config_file())
+        self.results = wrapper.launch_model()
 
-        
-        # if self.verbose:
-        #     print(f"✅ Model loaded successfully in {self.model_load_time:.2f}s!")
+    def create_config_file(self):
+        return {
+            "QUESTIONS": self.QUESTIONS,
+            "model_name": self.model_name,
+            "device": self.device,
+            "context_reserve_tokens": self.context_reserve_tokens,
+            "prefer_4bit": self.prefer_4bit,
+            "verbose": self.verbose,
+            "MAX_NEW_TOKENS": self.MAX_NEW_TOKENS,
+            "TEMPERATURE": self.TEMPERATURE,
+            "TOP_P": self.TOP_P,
+            "RANDOM_SEED": self.RANDOM_SEED,
+            "model_load_time": self.model_load_time,
+        }
 
-    def print_results(self, result: QAResult):
-        """Print results in a nice format."""
-        print("\n" + "="*80)
-        print("🔍 LICENSE ANALYSIS RESULTS")
-        print("="*80)
-        for i, q in enumerate(self.QUESTIONS, 1):
-            ans = result.answers.get(q, "")
-            print(f"\n{i}. {q}")
-            print(f"   📝 {ans}")
-            print("-"*60)
-        
-        if result.summary:
-            print(f"\n📌 Summary:")
-            print(f"   {result.summary}")
-        
-        if result.confidence is not None:
-            try:
-                conf_val = float(result.confidence)
-                print(f"\n🎯 Confidence: {conf_val:.2f}")
-            except (ValueError, TypeError):
-                print(f"\n🎯 Confidence: {result.confidence}")
 
-    def save_results(self, result: QAResult, license_file_path: str):
+    
+    # def print_results(self, result: QAResult):
+    #     """Print results in a nice format."""
+    #     print("\n" + "="*80)
+    #     print("🔍 LICENSE ANALYSIS RESULTS")
+    #     print("="*80)
+    #     for i, q in enumerate(self.QUESTIONS, 1):
+    #         ans = result.answers.get(q, "")
+    #         print(f"\n{i}. {q}")
+    #         print(f"   📝 {ans}")
+    #         print("-"*60)
+        
+    #     if result.summary:
+    #         print(f"\n📌 Summary:")
+    #         print(f"   {result.summary}")
+        
+    #     if result.confidence is not None:
+    #         try:
+    #             conf_val = float(result.confidence)
+    #             print(f"\n🎯 Confidence: {conf_val:.2f}")
+    #         except (ValueError, TypeError):
+    #             print(f"\n🎯 Confidence: {result.confidence}")
+
+    # def save_results(self, result: QAResult, license_file_path: str):
         """Save results to JSON file."""
         license_file = Path(license_file_path)
         out_path = license_file.with_suffix(".license-analysis.json")
@@ -110,8 +125,18 @@ class LicenseAnalyser:
             json.dump(result.model_dump(), f, indent=2, ensure_ascii=False)
         print(f"💾 Results saved to: {out_path}")
 
+    def save_results(self, saving_path):
+        json.dump(open(saving_path, "w"), self.results)
 
-def analyse_license(license_file_path: str, save_results: bool = True, analysis_method: str = "LLM", saving_path: str = "./") -> QAResult:
+    def print_results(self):
+        for q,a in self.results.items():
+            print(q)
+            print("\n\n")
+            print(a)
+            print("\n")
+            print("="*50)
+
+def analyse_license(license_file_path: str, save_results: bool = True, analysis_method: str = "LLM", saving_path: str = "./"):
     """
     Simple function to analyse a license file using Qwen2.5-7B-Instruct.
     
@@ -122,15 +147,16 @@ def analyse_license(license_file_path: str, save_results: bool = True, analysis_
     Returns:
         QAResult object with structured analysis
     """
-    if analysis_method == "LLM":
+
+    if analysis_method is "LLM":
         # Create analyser with Qwen2.5-7B-Instruct
         LLM_analyser = LicenseAnalyser()
-        result = LLM_analyser.analyseUsingLLM(license_file_path) 
-        LLM_analyser.print_results(result)
-        
+        LLM_analyser.analyseUsingLLM(license_file_path) 
+        LLM_analyser.print_results()
+
         # Save if requested
         if save_results:
-            LLM_analyser.save_results(result, saving_path)
+            LLM_analyser.save_results(saving_path)
     else:
         print("We are working on other license analysis methods. Stay tuned ...")
         quit()
@@ -150,23 +176,8 @@ if __name__ == "__main__":
         path_to_save = None
         if save_result_flag:
             path_to_save = input("Enter path you like to save the results: ").strip()
-        result = analyse_license(license_path, save_result_flag, path_to_save)
+        result = analyse_license(license_path, save_result_flag, "LLM", path_to_save)
         print("\n✅ Analysis complete!")
         
     except Exception as e:
         print(f"❌ Error during analysis: {e}")
-
-
-# Simple usage examples:
-"""
-# Install dependencies:
-pip install torch transformers accelerate bitsandbytes pydantic
-
-# Analyse a license file:
-python license_analyser.py
-
-# Or use in Python code:
-from license_analyser import analyse_license
-result = analyse_license("LICENSE.txt")
-print(result.answers["What type of license is this (MIT, GPL, Apache, BSD, etc.)?"])
-"""
