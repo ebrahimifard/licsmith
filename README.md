@@ -1,9 +1,9 @@
 # 🧾 licsmith
 
-**`licsmith`** is a Python toolkit that helps developers **collect** and **analyze** software licenses in Python projects.  
+**`licsmith`** is a Python toolkit that helps developers collect and analyse software licenses in Python projects.  
 It simplifies open-source compliance by automatically discovering, aggregating, and interpreting license files for all dependencies.
 
-> 🚧 **Status:** Work in progress — still under active development.  
+> 🚧 **Status:** Work in progress (still under active development).  
 > A PyPI-installable package is coming soon!
 
 ---
@@ -12,7 +12,7 @@ It simplifies open-source compliance by automatically discovering, aggregating, 
 
 ### 🧩 1. License Collector
 
-Automatically finds all external dependencies of your Python project, retrieves their license files, and aggregates them into a **single license report** for easy review and compliance tracking.
+Automatically finds all external dependencies of your Python project, retrieves their license files, and aggregates them into a single license report for easy review and compliance tracking.
 
 #### ▶️ Run
 
@@ -53,10 +53,10 @@ Please enter the name of the aggregated license file (e.g., LICENSES.txt): LICEN
 
 ---
 
-### ⚖️ 2. License Analyzer (LLM-Assisted)
+### ⚖️ 2. License Analyser (LLM-Assisted)
 
 Reads and interprets a given license file using a Large Language Model (LLM).
-It answers key legal and compliance questions with a **short verdict** and an **explanation citing relevant parts of the license**.
+It answers key legal and compliance questions with a short verdict and an explanation citing relevant parts of the license.
 
 #### ▶️ Run
 
@@ -101,14 +101,14 @@ as published by the Apache Software Foundation.
 ==================================================
 ```
 
-Each question is answered in this consistent, human-readable format —
-**short verdict first**, followed by a **supporting rationale** and **citations**.
+Each question is answered in this consistent, human-readable format with a
+short verdict first, followed by a supporting rationale.
 
 ---
 
 ### 🧾 Questions Answered
 
-The analyzer currently answers around **25 core compliance questions**, grouped by topic:
+The analyser currently answers around 25 core compliance questions, grouped by topic:
 
 #### 🪪 Identification
 
@@ -160,7 +160,3 @@ The analyzer currently answers around **25 core compliance questions**, grouped 
 
 `licsmith` is evolving into a comprehensive **license compliance assistant** for Python developers.
 ⭐ Star the repository to get updates as new features are released!
-
-
-
-````
